@@ -1,0 +1,3 @@
+class AiService:
+    """Interface; Implementierungen können später eingehängt werden."""
+    def analyze(self, entries): ...
