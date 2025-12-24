@@ -2,10 +2,10 @@
 
 
 a = Analysis(
-    ['src\\main.py'],
+    ['src\\mnemosynlogs\\main.py'],
     pathex=[],
     binaries=[],
-    datas=[('src/gui/assets', 'gui/assets'), ('src/config/defaults.json', 'config'), ('src/data', 'data')],
+    datas=[('src/mnemosynlogs/gui/assets', 'mnemosynlogs/gui/assets'), ('src/mnemosynlogs/config/defaults.json', 'mnemosynlogs/config'), ('src/mnemosynlogs/data', 'mnemosynlogs/data')],
     hiddenimports=[],
     hookspath=[],
     hooksconfig={},
@@ -35,5 +35,5 @@ exe = EXE(
     target_arch=None,
     codesign_identity=None,
     entitlements_file=None,
-    icon=['src\\gui\\assets\\icon.ico'],
+    icon=['src\\mnemosynlogs\\gui\\assets\\icon.ico'],
 )
