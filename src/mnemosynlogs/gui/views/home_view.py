@@ -3,10 +3,10 @@ import tkinter as tk
 from tkinter import ttk
 
 from ...logic.services.log_service import LogService
-from ...logic.repositories.activity_repo import ActivityRepo
-from ...logic.repositories.daily_repo import DailyRepo
-from ...logic.repositories.todo_repo import TodoRepo
-from ...logic.repositories.issues_repo import IssuesRepo
+from ...logic.persistence.activity_persist import ActivityPersist
+from ...logic.persistence.daily_persist import DailyPersist
+from ...logic.persistence.todo_persist import TodoPersist
+from ...logic.persistence.issues_persist import IssuesPersist
 from ...util.paths import data_dir_path
 from ..theme.win95_palette import WIN95
 
@@ -25,10 +25,10 @@ class HomeView(tk.Frame):
         # Services
         data_dir = data_dir_path()
         self.services = {
-            "activity": LogService(ActivityRepo(data_dir)),
-            "daily":    LogService(DailyRepo(data_dir)),
-            "todo":     LogService(TodoRepo(data_dir)),
-            "issues":   LogService(IssuesRepo(data_dir)),
+            "activity": LogService(ActivityPersist(data_dir)),
+            "daily":    LogService(DailyPersist(data_dir)),
+            "todo":     LogService(TodoPersist(data_dir)),
+            "issues":   LogService(IssuesPersist(data_dir)),
         }
         self.current_log = "activity"
 

@@ -1,5 +1,5 @@
 
-# src/mnemosynlogs/logic/repositories/base_csv_repo.py
+# src/mnemosynlogs/logic/persistence/base_csv_persist.py
 import csv
 from pathlib import Path
 from typing import List, Iterable
@@ -10,7 +10,7 @@ CSV_FIELDS = ["id","ticket id","content","duration","date","time","status","dued
 def _norm(name: str) -> str:
     return (name or "").replace("\ufeff", "").strip().lower().replace("_", " ")
 
-class BaseCsvRepository:
+class BaseCsvPersistence:
     def __init__(self, file_path: Path):
         self.file_path = file_path
         self.file_path.parent.mkdir(parents=True, exist_ok=True)
