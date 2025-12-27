@@ -1,4 +1,3 @@
-
 import tkinter as tk
 from tkinter import ttk
 
@@ -10,13 +9,16 @@ from ...logic.persistence.issues_persist import IssuesPersist
 from ...util.paths import data_dir_path
 from ..theme.win95_palette import WIN95
 
+# NEU: ActivityDisplay importieren
+from ..widgets.activity_display import ActivityDisplay
+
+
 class HomeView(tk.Frame):
     """
     90er-Look gemäß Bauplan:
     - Sidebar links (activity/daily/todo/issues)
-    - Mittlerer Workspace (blau), darin „Konsole“-Fenster (schwarz, weißer Text)
-    - Unten Eingabeleiste (ticket id, content, duration, status, add)
-    - Oben wird globaler Header/Titlebar außerhalb dieses Views gerendert
+    - Mittlerer Workspace (blau), darin Activity-Anzeige mit Datumsgruppen
+    - Unten Eingabeleiste (unverändert)
     """
 
     def __init__(self, parent):
@@ -36,32 +38,31 @@ class HomeView(tk.Frame):
         main = tk.Frame(self, bg=WIN95["bg"])
         main.pack(fill="both", expand=True, padx=6, pady=6)
 
-        # Sidebar links (vertikale Buttons)
+        # Sidebar links
         sidebar = tk.Frame(main, bg=WIN95["bg"], relief="sunken", borderwidth=2)
-        sidebar.pack(side="left", fill="y", padx=(0,6))
+        sidebar.pack(side="left", fill="y", padx=(0, 6))
         for name in ["activity", "daily", "todo", "issues"]:
-            tk.Button(sidebar, text=name, relief="raised", bg=WIN95["btn_face"],
-                      width=10, command=lambda n=name: self._switch(n)).pack(padx=6, pady=6)
+            tk.Button(
+                sidebar,
+                text=name,
+                relief="raised",
+                bg=WIN95["btn_face"],
+                width=10,
+                command=lambda n=name: self._switch(n)
+            ).pack(padx=6, pady=6)
 
         # Workspace (blau)
         workspace = tk.Frame(main, bg=WIN95["desk_bg"], relief="sunken", borderwidth=2)
         workspace.pack(side="left", fill="both", expand=True)
 
-        # „Konsole“-Fenster (schwarz) im Workspace
+        # --- ZENTRALE ANZEIGE (ersetzt die alte "Konsole") ----------------------
         console_frame = tk.Frame(workspace, bg=WIN95["bg"], relief="sunken", borderwidth=2)
-        console_frame.place(relx=0.05, rely=0.08, relwidth=0.90, relheight=0.70)  # Position wie im Bauplan (ungefähr)
+        console_frame.place(relx=0.05, rely=0.08, relwidth=0.90, relheight=0.70)
 
-        self.console = tk.Text(console_frame,
-                               bg=WIN95["console_bg"], fg=WIN95["console_fg"],
-                               insertbackground=WIN95["console_fg"],
-                               font=("Courier New", 10), state="disabled")
-        self.console.pack(side="left", fill="both", expand=True, padx=4, pady=4)
+        # Placeholder – wird in refresh() ersetzt
+        self.activity_display = None
 
-        sb = ttk.Scrollbar(console_frame, orient="vertical", command=self.console.yview)
-        self.console.configure(yscrollcommand=sb.set)
-        sb.pack(side="right", fill="y")
-
-        # Eingabe-Leiste unten im Workspace (raised Panel)
+        # --- Eingabe-Leiste unten (UNVERÄNDERT) ---------------------------------
         bottom = tk.Frame(workspace, bg=WIN95["bg"], relief="raised", borderwidth=2)
         bottom.place(relx=0.05, rely=0.80, relwidth=0.90, relheight=0.15)
 
@@ -72,7 +73,7 @@ class HomeView(tk.Frame):
         tik_panel.place(relx=0.12, rely=0.10, relwidth=0.15, relheight=0.60)
         tk.Entry(tik_panel, textvariable=self.ticket_var, bg=WIN95["entry_bg"]).pack(fill="both", expand=True)
 
-        # content (breit)
+        # content
         tk.Label(bottom, text="content:", bg=WIN95["bg"]).place(relx=0.29, rely=0.20)
         self.content_var = tk.StringVar()
         con_panel = tk.Frame(bottom, bg=WIN95["bg"], relief="sunken", borderwidth=2)
@@ -91,19 +92,30 @@ class HomeView(tk.Frame):
         self.status_var = tk.StringVar()
         stat_panel = tk.Frame(bottom, bg=WIN95["bg"], relief="sunken", borderwidth=2)
         stat_panel.place(relx=0.12, rely=0.65, relwidth=0.15, relheight=0.25)
-        ttk.Combobox(stat_panel, textvariable=self.status_var,
-                     values=["na","todo","done",""], state="readonly").pack(fill="both", expand=True)
+        ttk.Combobox(
+            stat_panel,
+            textvariable=self.status_var,
+            values=["na", "todo", "done", ""],
+            state="readonly"
+        ).pack(fill="both", expand=True)
 
-        # ADD-Button (rechts außen)
-        tk.Button(bottom, text="add", relief="raised", bg=WIN95["btn_face"],
-                  command=self.add_entry).place(relx=0.94, rely=0.10, relwidth=0.05, relheight=0.60)
+        # ADD-Button (noch nicht grün – kommt später)
+        tk.Button(
+            bottom,
+            text="add",
+            relief="raised",
+            bg=WIN95["btn_face"],
+            command=self.add_entry
+        ).place(relx=0.94, rely=0.10, relwidth=0.05, relheight=0.60)
 
-        # Statuszeile (unterhalb des Workspace)
+        # Statuszeile
         self.status = tk.StringVar(value="Bereit.")
         statusbar = tk.Frame(self, bg=WIN95["bg"], relief="sunken", borderwidth=2)
-        statusbar.pack(side="bottom", fill="x", padx=6, pady=(0,6))
+        statusbar.pack(side="bottom", fill="x", padx=6, pady=(0, 6))
         tk.Label(statusbar, textvariable=self.status, bg=WIN95["bg"], anchor="w").pack(fill="x")
 
+        # Initiales Laden
+        self.console_frame = console_frame
         self.refresh()
 
     # --- Service/Logik ----------------------------------------------------------
@@ -117,14 +129,15 @@ class HomeView(tk.Frame):
 
     def refresh(self):
         entries = self._svc().list()
-        # Konsole neu rendern (einfaches Zeilenformat; später gruppiert nach Datum)
-        self.console.configure(state="normal")
-        self.console.delete("1.0", "end")
-        for e in entries:
-            dur = e.duration if e.duration is not None else "na"
-            line = f"{e.id}  {e.ticket_id or 'na'}  {e.content}  {dur}min  {e.date}  {e.time}  {e.status or 'na'}\n"
-            self.console.insert("end", line)
-        self.console.configure(state="disabled")
+
+        # Alte Anzeige entfernen
+        if self.activity_display is not None:
+            self.activity_display.destroy()
+
+        # Neue Anzeige mit Datumsgruppen erzeugen
+        self.activity_display = ActivityDisplay(self.console_frame, entries)
+        self.activity_display.pack(fill="both", expand=True, padx=4, pady=4)
+
         self.status.set(f"{self.current_log}: {len(entries)} Einträge geladen.")
 
     def add_entry(self):
@@ -136,11 +149,21 @@ class HomeView(tk.Frame):
         if not content:
             self.status.set("Bitte content eingeben.")
             return
+
         dur_val = int(duration) if duration.isdigit() else None
         ticket_val = ticket if ticket else None
 
-        self._svc().add(ticket_id=ticket_val, content=content,
-                         duration=dur_val, status=status, duedate=None)
-        self.content_var.set(""); self.ticket_var.set(""); self.duration_var.set(""); self.status_var.set("")
+        self._svc().add(
+            ticket_id=ticket_val,
+            content=content,
+            duration=dur_val,
+            status=status,
+            duedate=None
+        )
+
+        self.content_var.set("")
+        self.ticket_var.set("")
+        self.duration_var.set("")
+        self.status_var.set("")
         self.refresh()
         self.status.set(f"Eintrag zu {self.current_log} hinzugefügt.")

@@ -11,8 +11,6 @@ class MnemoSynLogsApp:
         self.root.title("MnemoSynLogs")
         apply_win95_style(self.root)
 
-        TitleBar(self.root, title="MnemoSynLogs")
-
         # Header-Navigation
         NavBar(self.root, on_nav=self._navigate)
 
